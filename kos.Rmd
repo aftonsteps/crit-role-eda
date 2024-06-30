@@ -1,0 +1,323 @@
+---
+title: "KO's"
+author: "Afton Coombs"
+date: "4/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(ggplot2)
+library(cowplot)
+library(magick)
+library(ggtextures)
+library(grid)
+library(ggthemes)
+library(tibble)
+library(ggtext)
+
+```
+
+
+## Knock-Outs
+```{r load-kos}
+source("colors.R")
+kos <- 
+  read.csv("data/kos.csv", stringsAsFactors = FALSE) %>%
+  dplyr::mutate(character = gsub(pattern = " \\(.*", replacement = "", x = ko))
+
+frumpkin_kos <- sum(kos$character == "Frumpkin")
+
+m9_kos_count <-
+  kos %>%
+  dplyr::filter(character %in% c("Beau", 
+                                 "Caduceus",
+                                 "Caleb",
+                                 "Fjord",
+                                 "Jester",
+                                 "Molly",
+                                 "Nott",
+                                 "Yasha")) %>%
+  dplyr::group_by(character) %>%
+  dplyr::summarize(count = n()) %>%
+  dplyr::left_join(data.frame(single_mighty_nein_colors) %>%
+                     tibble::rownames_to_column(var = "character")) %>%
+  dplyr::mutate(frumpkin_kos = frumpkin_kos) %>%
+  dplyr::mutate(frumpkin_ratio = count / frumpkin_kos)
+
+```
+
+```{r plot-kos}
+ggplot(data = m9_kos_count,
+       aes(x = character, y = count, fill = character)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = single_mighty_nein_colors) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  KO's in the M9")
+```
+
+```{r plot-kos-with-frumpkin}
+ggplot(data = m9_kos_count,
+       aes(x = character, y = count, fill = character)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = single_mighty_nein_colors) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  KO's in the M9") +
+  geom_hline(yintercept = frumpkin_kos, color = "lightsalmon4") +
+  ggplot2::annotate(geom = "text", x = 8, y = 4.3, label = "Frumpkin", size = 3, family = "Courier New")
+```
+
+```{r plot-kos-ratio-frumpkin}
+img <- image_read("img/bengal.jpg")
+
+m9_kos_with_img <-
+  tibble::as_tibble(m9_kos_count) %>%
+  dplyr::mutate(image = list(img))
+
+ggplot(data = m9_kos_with_img,
+       aes(x = character, y = as.numeric(frumpkin_ratio) * 4, image = image)) +
+  #geom_bar(stat = "identity") +
+  #scale_fill_manual("legend", values = single_mighty_nein_colors) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  KO's in the M9") +
+  geom_textured_bar(stat = "identity") +
+  geom_hline(yintercept = frumpkin_kos, color = "lightsalmon4") +
+  ggplot2::annotate(geom = "text", x = 8, y = 4.3, label = "Frumpkin", size = 3, family = "Courier New")
+```
+
+## KO's Scaled by Attendance
+```{r load-att-data}
+# attendance_data <- 
+#   read.csv("data/Running Times - Wildemount - WM CR Attendance.csv",
+#            stringsAsFactors = FALSE)
+
+attendance_data <- 
+  read.csv("data/Running Times - Wildemount - WM CR Attendance 04-22-2020.csv",
+           stringsAsFactors = FALSE)
+
+attendance_data$Episode.Num <- 
+  as.numeric(gsub("C2E", "", attendance_data$Episode))
+
+attendance_data$Date <- 
+  as.Date(attendance_data$Air.Date,
+                     format = "%m/%d/%y")
+
+attendance_data_long <-
+  attendance_data %>%
+  tidyr::pivot_longer(cols = c("Laura", 
+                               "Liam", 
+                               "Marisha", 
+                               "Taliesin", 
+                               "Travis", 
+                               "Sam", 
+                               "Ashley"),
+                      names_to = "Actor") %>%
+  as_tibble() %>%
+  dplyr::mutate(value = as.factor(value))
+
+attendance_prop <- 
+  attendance_data_long %>%
+  dplyr::group_by(Actor) %>%
+  dplyr::summarize(attended = sum(as.numeric(as.character(value))),
+                   episodes = dplyr::n()) %>%
+  dplyr::mutate(att_prop = attended/episodes)
+```
+
+```{r combine-att-and-ko}
+actor_char <-
+  data.frame(actor = c("Ashley",
+                       "Laura",
+                       "Liam",
+                       "Marisha",
+                       "Sam",
+                       "Taliesin1",
+                       "Taliesin2",
+                       "Travis"),
+             character = c("Yasha",
+                           "Jester",
+                           "Caleb",
+                           "Beau",
+                           "Nott",
+                           "Molly",
+                           "Caduceus",
+                           "Fjord"))
+
+att_and_ko <- 
+  attendance_data_long %>%
+  dplyr::mutate(Actor = ifelse(Actor == "Taliesin" & Episode.Num <= 27,
+                               yes = "Taliesin1",
+                               no = ifelse(Actor == "Taliesin" & Episode.Num >= 28,
+                                           yes = "Taliesin2",
+                                           no = Actor))) %>%
+  dplyr::left_join(actor_char, by = c("Actor" = "actor")) %>%
+  dplyr::group_by(character) %>%
+  dplyr::summarize(n = dplyr::n(),
+                   attended = sum(as.numeric(as.character(value)))) %>%
+  dplyr::left_join(m9_kos_count) %>%
+  dplyr::mutate(kos_over_ep = count / attended) %>%
+  dplyr::mutate(frumpkin_kos_over_ep = frumpkin_kos / 99) %>%
+  dplyr::mutate(frumpkin_ep_ratio = kos_over_ep / frumpkin_kos_over_ep)
+```
+
+```{r plot-kos-ep}
+ggplot(data = att_and_ko,
+       aes(x = character, y = kos_over_ep, fill = character)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = single_mighty_nein_colors) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  Ratio of KO's to Episodes in the M9")
+```
+
+
+```{r plot-kos-with-frumpkin-ep}
+ggplot(data = att_and_ko,
+       aes(x = character, y = kos_over_ep, fill = character)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = single_mighty_nein_colors) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  Ratio of KO's to Episodes in the M9") +
+  geom_hline(yintercept = att_and_ko$frumpkin_kos_over_ep, color = "lightsalmon4") +
+  ggplot2::annotate(geom = "text", x = 8, y = 0.045, label = "Frumpkin", size = 3, family = "Courier New", color = "white")
+```
+
+
+```{r plot-kos-ratio-frumpkin-ep}
+img <- image_read("img/bengal-2.jpg")
+
+att_and_ko_with_img <-
+  tibble::as_tibble(att_and_ko) %>%
+  dplyr::mutate(image = list(img))
+
+ggplot(data = att_and_ko_with_img,
+       aes(x = character, y = as.numeric(kos_over_ep), image = image)) +
+  theme_few() +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New")) +
+  labs(caption = "\n  Ratio of KO's to Episodes in the M9") +
+  geom_textured_bar(stat = "identity") +
+  geom_hline(yintercept = att_and_ko_with_img$frumpkin_kos_over_ep, color = "lightsalmon4") +
+  ggplot2::annotate(geom = "label", x = 8, y = 0.048, label = "Frumpkin", size = 3, family = "Courier New", color = "black", fill = "white")
+```
+
+```{r damage, options}
+damage <- 
+  openxlsx::read.xlsx("data/damage_dealt.xlsx") %>%
+  tidyr::pivot_longer(cols = c("damage_dealt", "damage_taken")) %>%
+  dplyr::filter(character != "Frumpkin") %>%
+  dplyr::mutate(character = ifelse(test = character == "Beauregard",
+                                   yes = "Beau",
+                                   no = ifelse(character == "Mollymauk",
+                                               yes = "Molly",
+                                               no = ifelse(test = character == "Nott/Veth",
+                                                           yes = "Nott",
+                                                           no = character)))) %>%
+  dplyr::mutate(character_fact = ifelse(test = name == "damage_dealt",
+                                        yes = paste0(character, "1"),
+                                        no = paste0(character, "0")))
+
+ggplot(data = damage,
+       aes(x = character, y = value, fill = factor(character_fact))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = discrete_mighty_nein_colors_by_char) +
+  theme_few() +
+  labs(caption = "\n   Damage <span style='color:#000000;'>**Dealt**</span> and <span style='color:#B0B0B0;'>**Taken**</span> in the M9 ") +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        #plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New"),
+        plot.title = element_markdown(lineheight = 1.1),
+        plot.subtitle = element_markdown(lineheight = 1.1),
+        plot.caption = element_markdown(hjust = 0, size = 14, lineheight = 6, family = "Courier New"))
+```
+
+```{r damage-ep, options}
+damage <- 
+  openxlsx::read.xlsx("data/damage_dealt.xlsx") %>%
+  tidyr::pivot_longer(cols = c("avg_damage_dealt_per_ep",
+                               "avg_damage_taken_per_ep")) %>%
+  dplyr::filter(character != "Frumpkin") %>%
+  dplyr::mutate(character = ifelse(test = character == "Beauregard",
+                                   yes = "Beau",
+                                   no = ifelse(character == "Mollymauk",
+                                               yes = "Molly",
+                                               no = ifelse(test = character == "Nott/Veth",
+                                                           yes = "Nott",
+                                                           no = character)))) %>%
+  dplyr::mutate(character_fact = ifelse(test = name == "avg_damage_dealt_per_ep",
+                                        yes = paste0(character, "1"),
+                                        no = paste0(character, "0")))
+
+damage_and_att <- 
+  attendance_data_long %>%
+  dplyr::mutate(Actor = ifelse(Actor == "Taliesin" & Episode.Num <= 27,
+                               yes = "Taliesin1",
+                               no = ifelse(Actor == "Taliesin" & Episode.Num >= 28,
+                                           yes = "Taliesin2",
+                                           no = Actor))) %>%
+  dplyr::left_join(actor_char, by = c("Actor" = "actor")) %>%
+  dplyr::group_by(character) %>%
+  dplyr::summarize(n = dplyr::n(),
+                   attended = sum(as.numeric(as.character(value)))) %>%
+  dplyr::left_join(damage)  %>%
+  dplyr::mutate(value_per_ep = value / attended)
+
+ggplot(data = damage_and_att,
+       aes(x = character, y = value_per_ep, fill = factor(character_fact))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = discrete_mighty_nein_colors_by_char) +
+  theme_few() +
+  labs(caption = "\n   Damage <span style='color:#000000;'>**Dealt**</span> and <span style='color:#B0B0B0;'>**Taken**</span> Per Episodes in the M9 ") +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        #plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New"),
+        plot.title = element_markdown(lineheight = 1.1),
+        plot.subtitle = element_markdown(lineheight = 1.1),
+        plot.caption = element_markdown(hjust = 0, size = 14, lineheight = 6, family = "Courier New"))
+
+ggplot(data = damage,
+       aes(x = character, y = value, fill = factor(character_fact))) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual("legend", values = discrete_mighty_nein_colors_by_char) +
+  theme_few() +
+  labs(caption = "\n   Average Damage Per Episode <span style='color:#000000;'>**Dealt**</span> and <span style='color:#B0B0B0;'>**Taken**</span> in the M9 ") +
+  theme(panel.border = element_blank(),
+        legend.position = "none",
+        #plot.caption = element_text(hjust = 0, size = 14, family = "Courier New"),
+        axis.title = element_blank(),
+        axis.text = element_text(family = "Courier New"),
+        plot.title = element_markdown(lineheight = 1.1),
+        plot.subtitle = element_markdown(lineheight = 1.1),
+        plot.caption = element_markdown(hjust = 0, size = 14, lineheight = 6, family = "Courier New"))
+```

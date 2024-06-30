@@ -1,0 +1,166 @@
+---
+title: 'Character Actions: Jester, Beau, Yasha'
+author: "Afton Coombs"
+date: "5/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+```
+
+## Beau's Ki Points
+
+```{r get-beau-data}
+ki_points <- 
+  read.csv("data/beau_ki_points.csv",
+           stringsAsFactors = FALSE)
+
+ki_points$action <- stringr::str_to_title(ki_points$action)
+
+ki_points$prop <- ki_points$num / sum(ki_points$num, na.rm = TRUE)
+
+ki_points <- 
+  ki_points %>% 
+  dplyr::arrange(dplyr::desc(num)) %>%
+  dplyr::mutate(action = factor(action, levels = action[order(num)])) %>%
+  dplyr::mutate(legend_text = paste0(action, ": ", num, ", ", round(prop, 2) * 100, "%")) %>%
+    dplyr::mutate(legend_text = factor(legend_text, levels = legend_text[order(num)]))
+```
+
+```{r make_beau_bar_chart}
+beau_bar <-
+  ggplot2::ggplot(data = ki_points,
+                  mapping = ggplot2::aes(x = 1, y = num, fill = legend_text)) +
+  ggplot2::geom_bar(position = "fill", stat = "identity", color="black", size = 0.1) +
+  ggplot2::scale_fill_manual(values = 
+                               RColorBrewer::brewer.pal(n = length(unique(ki_points$action)),
+                                                        name = "Blues")) +
+  ggthemes::theme_solid() +
+  ggplot2::scale_y_continuous(labels = c("0%", "25%", "50%", "75%", "100%")) +
+  ggplot2::ggtitle("\n  Beau's Ki Points") +
+  ggplot2::labs(fill = "Action\n") +
+  ggplot2::theme(legend.position = "right", 
+                 legend.text = ggplot2::element_text(size = 8,
+                                                     family = "Courier"),
+                 legend.title = ggplot2::element_text(size = 10,
+                                                      family = "Courier"),
+                 plot.title = ggplot2::element_text(size = 15, 
+                                                    family = "Courier"),
+                 axis.ticks.y = ggplot2::element_line(),
+                 axis.text.y = ggplot2::element_text(size = 8,
+                                                     family = "Courier"))
+
+
+beau_bar
+```
+
+```{r load-jester-data}
+prank_data <-
+  read.csv("data/jester_pranks.csv") %>%
+  dplyr::filter(grepl("^\\(", prank)) %>%
+  dplyr::mutate(prank = gsub(pattern = "^\\(.*\\)", "", prank)) %>%
+  dplyr::filter(prank != "") %>%
+  dplyr::mutate(prank = tolower(prank)) %>%
+  dplyr::mutate(dick = grepl("dick|penis|wang", prank)) %>%
+  dplyr::mutate(rearrange = grepl("rearrange|rearranging", prank)) %>%
+  dplyr::mutate(wand_of_smiles = grepl("wand of smiles", prank)) %>%
+  dplyr::mutate(mustache = grepl("mustache", prank)) %>%
+  dplyr::mutate(captain_tusktooth = grepl("tusktooth", prank)) %>%
+  dplyr::mutate(other = dick == FALSE &
+                  wand_of_smiles == FALSE &
+                  mustache == FALSE &
+                  captain_tusktooth == FALSE)
+
+## check that there are no pranks with two categories
+unique(rowSums(prank_data %>% dplyr::select(dick, wand_of_smiles, mustache, captain_tusktooth, pee, rearrange)))
+
+prank_counts <- 
+  data.frame(prank_involving = 
+               c("a dick", "the wand of smiles", 
+                 "a mustache", "captain tusktooth", "rearranging things", "various other pranks"),
+             count = c(sum(prank_data$dick),
+                       sum(prank_data$wand_of_smiles),
+                       sum(prank_data$mustache),
+                       sum(prank_data$captain_tusktooth),
+                       sum(prank_data$rearrange),
+                       sum(prank_data$other))) %>%
+  dplyr::mutate(prop = count / sum(count)) %>%
+  dplyr::mutate(legend_text = paste0(prank_involving, ": ", count, ", ", round(prop, 2) * 100, "%")) %>%
+  dplyr::mutate(legend_text = factor(x = legend_text, 
+                                         levels = legend_text[order(count)]))
+```
+
+```{r prank-bar}
+prank_bar <-
+  ggplot2::ggplot(data = prank_counts,
+                  mapping = ggplot2::aes(x = 1, y = count, fill = legend_text)) +
+  ggplot2::geom_bar(position = "fill", stat = "identity", color="black", size = 0.1) +
+  ggplot2::scale_fill_manual(values = 
+                               RColorBrewer::brewer.pal(n = length(unique(prank_counts$prank_involving)),
+                                                        name = "PuRd")) +
+  ggthemes::theme_solid() +
+  ggplot2::scale_y_continuous(labels = c("0%", "25%", "50%", "75%", "100%")) +
+  ggplot2::ggtitle("\n  Jester Was Here >:)") +
+  ggplot2::labs(fill = "Prank Involving\n") +
+  ggplot2::theme(legend.position = "right", 
+                 legend.text = ggplot2::element_text(size = 8,
+                                                     family = "Comic Sans MS"),
+                 legend.title = ggplot2::element_text(size = 10,
+                                                      family = "Comic Sans MS"),
+                 plot.title = ggplot2::element_text(size = 15, 
+                                                    family = "Comic Sans MS",
+                                                      face = "bold"),
+                 axis.ticks.y = ggplot2::element_line(),
+                 axis.text.y = ggplot2::element_text(size = 8,
+                                                     family = "Comic Sans MS"))
+
+
+prank_bar
+```
+
+```{r dick-bar}
+
+## icon from Icongeek26 https://www.flaticon.com/free-icon/eggplant_2909677?term=eggplant&page=1&position=10
+img <- magick::image_read("img/eggplant.png")
+pink0 <- magick::image_read("img/level0pink.png")
+pink1 <- magick::image_read("img/level1pink.png")
+pink2 <- magick::image_read("img/level2pink.png")
+pink3 <- magick::image_read("img/level3pink.png")
+pink5 <- magick::image_read("img/level5pink.png")
+
+prank_counts_with_img <-
+  tibble::as_tibble(prank_counts) %>%
+  dplyr::arrange(count) %>%
+  dplyr::mutate(image = list(pink0, pink1, pink2, pink3, img, pink5))
+
+prank_bar <-
+  ggplot2::ggplot(data = prank_counts_with_img,
+                  mapping = ggplot2::aes(x = 1, y = prop, fill = legend_text, image = image)) +
+  ggtextures::geom_textured_bar(stat = "identity", 
+                                width = 0.1,
+                                img_height = unit(1.25, units = "cm"),
+                                img_width = unit(1.25, units = "cm")) +
+  ggplot2::scale_fill_manual(values =
+                               RColorBrewer::brewer.pal(n = length(unique(prank_counts$prank_involving)),
+                                                        name = "PuRd")) +
+  ggthemes::theme_solid() +
+  ggplot2::scale_y_continuous(labels = c("0%", "25%", "50%", "75%", "100%")) +
+  ggplot2::ggtitle("\n  Jester Was Here >:)") +
+  ggplot2::labs(fill = "Prank Involving\n") +
+  ggplot2::theme(legend.position = "right", 
+                 legend.text = ggplot2::element_text(size = 8,
+                                                     family = "Comic Sans MS"),
+                 legend.title = ggplot2::element_text(size = 10,
+                                                      family = "Comic Sans MS"),
+                 plot.title = ggplot2::element_text(size = 15, 
+                                                    family = "Comic Sans MS",
+                                                      face = "bold"),
+                 axis.ticks.y = ggplot2::element_line(),
+                 axis.text.y = ggplot2::element_text(size = 8,
+                                                     family = "Comic Sans MS"))
+
+
+prank_bar
+```

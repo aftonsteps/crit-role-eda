@@ -1,0 +1,195 @@
+---
+title: 'Critical Role Series: Attendance'
+author: Afton Coombs
+date: '2020-05-22'
+slug: critical-role-series-attendance
+categories:
+  - R
+  - analysis
+  - d&d
+  - criticalrole
+tags:
+  - R Markdown
+---
+
+```{r setup, echo = FALSE, include = FALSE, message = FALSE}
+library(magrittr)
+```
+
+## Introduction
+
+This is a short exploratory data analysis of attendance on the web series Critical Role, in which 
+voice actors play Dungeons and Dragoooooooons! It is a fantastic show, 
+*and* some the amazing people at <a href = "https://www.critrolestats.com/stats-wm">
+Crit Role Stats</a> have been tracking <a href = "https://twitter.com/CritRoleStats/">"monster stats, dice rolls, and anything else that can be quantified on Critical Role"</a>.
+
+Critical Role is currently on hiatus due to COVID-19, so to fill the usual time slot on Thursdays, I've 
+been having some fun with <a href = "https://www.critrolestats.com/stats-wm">
+Critical Role Stats</a> data, mostly for the purposes of data visualization. This first one is about actor attendance on Critical Role.
+
+## Background Information
+During this season, Ashley Johnson (playing Yasha) had a conflicting 
+role acting on a TV series, and was absent for several episodes, 
+Laura Bailey (Jester) and Travis Willingham (Fjord) had a baby (yay!) and was also absent for a few 
+episodes, and Taliesin and Liam had a smattering of absences 
+for various reasons.
+
+## The Data
+Attendance data downloaded from a <a href = "https://docs.google.com/spreadsheets/d/1E1DfdXJVu9UpGNG29JMHT3ovk8Ol_UTzol40DMzz-rw/edit#gid=1399380767">Crit Role Stats Google sheet</a>.
+
+```{r load-data}
+attendance_data <- 
+  read.csv("data/CR Attendance.csv",
+           stringsAsFactors = FALSE)
+
+head(attendance_data)  
+```
+
+With a little `dplyr` manipulation, we can add numeric episode values and a Date class column, as well
+pivot the data into a long format which will be more useful for plotting. The column `value` here is a binary 
+variable, indicating if an actor was (`1`) or wasn't (`0`) present for a particular episode.
+
+I also converted the `character` type column `Actor` to a `factor` type, ordering by the seating
+order of the show top left to bottom right. This will let us put the graph in the right order, when
+we get to it. Because I want Travis to be top of the graph, and Ashley bottom of the graph, Travis must have the highest
+factor value and Ashley must have the lowest, so the factor levels are set beginning with Ashley.
+
+```{r data-munge}
+attendance_data_long <-
+  attendance_data %>%
+  dplyr::mutate(Episode.Num = as.numeric(gsub("C2E", "", Episode)),
+                Date = as.Date(Air.Date, format = "%m/%d/%y")) %>%
+  tidyr::pivot_longer(cols = c("Laura", 
+                               "Liam", 
+                               "Marisha", 
+                               "Taliesin", 
+                               "Travis", 
+                               "Sam", 
+                               "Ashley"),
+                      names_to = "Actor") %>%
+  tibble::as_tibble() %>%
+  dplyr::mutate(value = as.factor(value),
+                Actor = factor(Actor,
+                               levels = c("Ashley",
+                                          "Taliesin",
+                                          "Laura",
+                                          "Sam",
+                                          "Liam",
+                                          "Marisha",
+                                          "Travis")))
+
+head(attendance_data_long)
+```
+
+## Plotting
+It's fairly straightforward to plot the attendance data using a dark color marking "present" and a light
+color marking "absent." 
+
+What do we see here? Well, Ashley missed a bit while working on another TV show. Travis and Laura were absent 
+on the same days starting around episode 25, when they had a baby. Sam and Marisha never missed an episode.
+
+```{r simple-plot}
+ggplot2::ggplot(data = attendance_data_long,
+                ggplot2::aes(x = Episode.Num,
+                             y = Actor,
+                             fill = factor(value))) +
+  ggplot2::geom_tile(color = "black") +
+  ggthemes::theme_hc() +
+  ggplot2::scale_color_manual(values = c("lightgray", "gray40"),
+                              aesthetics = c("fill")) +
+  ggplot2:: scale_x_continuous(breaks = seq(1, 94, 1),
+                               labels = paste0("Ep. ", seq(1, 94, 1))) +
+  ggplot2::theme(legend.position = "none",
+                 axis.text.x = ggplot2::element_text(size = 5,
+                                            angle = 90),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.title.x = ggplot2::element_blank(),
+                 axis.title.y = ggplot2::element_blank())
+```
+
+To really make this pop, though, it would be nice to assign to each actor a color paletter reflective of their
+character. For example, Marisha's character Beau belongs to the Cobalt Soul and wears blue robes, so a blue palette would be nice for her. Sam's character Nott is a goblin thief, so a green color palette would work. Each
+color palette should have two colors, a dark color for "present" and a light color for "absent", so 7 actors * 2 values = 14 levels. Actually, Taliesin played two characters, Mollymauk until his death in episode 26, and Caduceus beginning
+in episode 28, so we need 16 levels to assign a different color palette to Taliesin before and after the 26th.
+
+These are hex codes for colors I thought looked right for each character, in a named vector where each name is one of the actors x attendance possibilities. I ordered the vector in the seating order of the show, with
+Travis at top left and Ashley at bottom right.
+This will let us use these colors as a palette when we get to the plot. 
+
+```{r color-palette}
+discrete_mighty_nein_colors <-
+  c("Travis0" = as.character("#cadabe"),
+    "Travis1" = as.character("#78a05a"),
+    "Marisha0" = as.character("#9ebbfa"),
+    "Marisha1" = as.character("#072d7f"),
+    "Liam0" = as.character("#f3bea5"),
+    "Liam1" = as.character("#b36817"),
+    "Sam0" = as.character("#d8dabe"),
+    "Sam1" = as.character("#525530"),
+    "Laura0" = as.character("#b8c9e0"),
+    "Laura1" = as.character("#5882b8"),
+    "Taliesin0" = as.character("#cabcdc"),
+    "Taliesin1" = as.character("#5b417d"),
+    "Taliesin3" = as.character("#dfb9ca"),
+    "Taliesin4" = as.character("#c47e9d"),
+    "Ashley0" = as.character("#cccbcd"),
+    "Ashley1" = as.character("#535154"))
+
+discrete_mighty_nein_colors
+```
+
+We can plot the colors alone, just to get a sense of what they look like.
+
+```{r test-palette}
+ggplot2::ggplot(data = as.data.frame(discrete_mighty_nein_colors) %>% tibble::rownames_to_column(),
+                mapping = ggplot2::aes(x = rowname, y = 1, fill = rowname)) +
+  ggplot2::geom_bar(stat = "identity") +
+  ggplot2::scale_color_manual(values = discrete_mighty_nein_colors,
+                              aesthetics = c("fill")) +
+  ggthemes::theme_hc() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90),
+                 axis.title.x = ggplot2::element_blank(),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.text.y = ggplot2::element_blank(),
+                 axis.title.y = ggplot2::element_blank(),
+                 legend.position = "none")
+```
+
+You might be wondering why the labels are so flat -- e.g. "Taliesin0" and "Taliesin1", instead of a two-dimensional
+structure that has "Taliesin" in one column and 1 or 0 in the other, like our attendance data already has.
+
+Well, things gets tricky, because for `ggplot2` to give each character and their attendance value a different
+color in the plot, each combination needs to be its own factor level. This can be achieved in a somewhat hacky way by
+concatenating the actor name and their attendance value, e.g. "Taliesin0" for an episode in which Taliesin was absent.
+If anyone knows a better way of achieving this outcome -- please let me know!
+
+To use these colors, we need a new column in the data which has one factor level per actor and attendance combo.
+
+```{r hackify-the-data}
+attendance_data_long_with_factor <-
+  attendance_data_long %>%
+  dplyr::mutate(att_value = ifelse(test = Episode.Num > 27 & Actor == "Taliesin",
+                                   yes = paste0(Actor, as.numeric(value) + 2),
+                                   no = paste0(Actor, value))) %>%
+  dplyr::mutate(att_value = factor(att_value,
+                                   levels = names(discrete_mighty_nein_colors)))
+```
+
+```{r colorful-plot}
+ggplot2::ggplot(data = attendance_data_long_with_factor,
+                   ggplot2::aes(x = Episode.Num,
+                                y = Actor,
+                                fill = att_value)) +
+  ggplot2::geom_tile() +
+  ggthemes::theme_hc() +
+  ggplot2::scale_color_manual(values = discrete_mighty_nein_colors,
+                              aesthetics = c("fill")) +
+  ggplot2:: scale_x_continuous(breaks = seq(1, 94, 1),
+                               labels = paste0("Ep. ", seq(1, 94, 1))) +
+  ggplot2::theme(legend.position = "none",
+                 axis.text.x = ggplot2::element_text(size = 5,
+                                            angle = 90),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.title.x = ggplot2::element_blank(),
+                 axis.title.y = ggplot2::element_blank())
+```

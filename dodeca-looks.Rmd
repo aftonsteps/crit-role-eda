@@ -1,0 +1,77 @@
+---
+title: "Critical Role Dodecahedron Looks"
+author: "Afton Coombs"
+date: "4/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(ggplot2)
+library(cowplot)
+library(magick)
+library(ggtextures)
+library(grid)
+library(ggthemes)
+```
+
+Dodecahdron image from https://pixabay.com/vectors/geometry-pyritohedron-dodecahedron-162215/
+Open source!
+
+Data from https://www.critrolestats.com/dodecahedron
+
+```{r load}
+dodeca_data <- 
+  read.csv("data/dodecahedron_looks.csv",
+                        stringsAsFactors = FALSE) %>%
+  dplyr::mutate(Look = gsub(pattern = " \\(.*", replacement = "", x = Look))
+dodeca_img <- png::readPNG("img/dodecahedron.png")
+```
+
+```{r summarize}
+dodeca_summary <-
+  dodeca_data %>%
+  dplyr::group_by(Look) %>%
+  dplyr::summarize(`Number of Looks` = dplyr::n()) %>%
+  dplyr::mutate(Looker = Look) %>%
+  dplyr::filter(Looker != "Twiggy") %>%
+  dplyr::select(Looker, `Number of Looks`) %>%
+  dplyr::arrange(`Number of Looks`) %>%
+  dplyr::mutate(Looker = gsub(pattern = "Caduceus", replacement = "Cad", x = Looker))
+```
+
+```{r plot}
+colfunc <- colorRampPalette(c("#aab1bc", "#290a30"))
+
+g <- 
+  ggplot(data = dodeca_summary,
+                  aes(x = Looker, y = `Number of Looks`, fill = as.factor(`Number of Looks`))) +
+  geom_bar(stat = "identity", 
+           color = "black",
+           alpha = 1) +
+  ylim(-10, max(dodeca_summary$`Number of Looks`)) +
+  theme_minimal() +
+  coord_polar() +
+  theme(axis.text = element_text(size = 7, family = "Luminari"),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "bottom",
+        legend.text=element_text(size = 6,
+                                 family = "Luminari"),
+        legend.title = element_text(size = 9, family = "Luminari")) +
+  scale_fill_manual(breaks = seq(3,5), values = colfunc(3)) +
+  labs(fill = "Looks into the Dodecahedron  ") 
+  #ggtitle("Looks into the Dodecahedron")
+  #scale_discrete_manual("point_fill", values = colfunc(6))
+  #scale_y_continuous(breaks = c(1,2,3,4,5,6)) 
+  # scale_discrete_manual(breaks = c("1", "2", "3", "4", "5", "6"),
+  #                   values=colfunc(6))
+
+ggdraw() +
+  #draw_image(dodeca_img, y = 0.0, x = -0.045, scale = 0.35) +
+  draw_image(dodeca_img, y = 0.08, x = 0, scale = 0.35) +
+  draw_plot(g)
+```

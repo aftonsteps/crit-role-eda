@@ -1,0 +1,119 @@
+---
+title: "I Don't Want To Be a Good Cleric, I Want To Hit Him"
+author: "Afton Coombs"
+date: "5/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(magrittr)
+library(ggplot2)
+knitr::opts_chunk$set(echo = TRUE)
+source("colors.R")
+```
+
+```{r load-data}
+j_spells <- 
+  read.csv("data/jester-spells.csv",
+           stringsAsFactors = FALSE) %>%
+  dplyr::mutate(character_name = "Jester")
+colnames(j_spells) <- c("Spell", "Num", "Level", "Type", "character") 
+c_spells <- 
+  read.csv("data/caduceus-spells.csv",
+           stringsAsFactors = FALSE) %>%
+  dplyr::mutate(character_name = "Caduceus")
+colnames(c_spells) <- c("Spell", "Num", "Level", "Type", "character")
+```
+
+```{r plot-jester}
+j_spells_sum <-
+  j_spells %>%
+  dplyr::group_by(Type) %>%
+  dplyr::summarize(Num = sum(Num, na.rm = TRUE))
+
+c_spells_sum <-
+  c_spells %>%
+  dplyr::group_by(Type) %>%
+  dplyr::summarize(Num = sum(Num, na.rm = TRUE))
+
+spells_sum <-
+  j_spells_sum %>%
+  dplyr::mutate(character = "Jester") %>%
+  dplyr::full_join(c_spells_sum %>%
+                     dplyr::mutate(character = "Caduceus")) %>%
+  dplyr::group_by(character) %>%
+  dplyr::mutate(Prop = Num / sum(Num)) %>%
+  dplyr::mutate(class = paste0(character, "_", Type)) %>%
+  dplyr::mutate(text_color = rep(1))
+
+spells_by_level_sum <-
+  j_spells %>%
+  dplyr::full_join(c_spells) %>%
+  dplyr::group_by(character, Level, Type) %>%
+  dplyr::summarize(Num = sum(Num, na.rm = TRUE)) %>%
+  dplyr::group_by(character, Level) %>%
+  dplyr::mutate(Prop = Num / sum(Num)) %>%
+  dplyr::mutate(text_color = rep(1))
+```
+
+
+```{r get-colors}
+colors <- 
+  mighty_nein_dark_to_medium %>%
+  dplyr::full_join(mighty_nein_dark_to_light) %>%
+  dplyr::select(Jester = Laura, Caduceus = Taliesin2)
+
+colors <-
+  data.frame(Jester_healing = "#edf2f7",
+             Jester_damage = "#b8c9e0",
+             Jester_other = "#5882b8",
+             Caduceus_healing = "#ebf9f6",
+             Caduecus_damage = "#b0e8da",
+             Caduceus_other = "#26806a")
+```
+
+
+```{r total-plot}
+ggplot(data = spells_sum,
+       aes(x = character, 
+           y = Prop * 100, 
+           fill = factor(class,
+                         levels = c("Jester_healing",
+                                    "Caduceus_healing",
+                                    "Jester_other",
+                                    "Caduceus_other",
+                                    "Jester_damage",
+                                    "Caduceus_damage")),
+           color = Type)) +
+  geom_bar(stat = "identity", color = "black") +
+  # geom_text(aes(label = paste0(round(Prop, 3) * 100, "%")),
+  #           position = position_stack(vjust = 0.5)) +
+  # geom_text(aes(label = paste0(round(Prop, 3) * 100, "%")),
+  #           position = position_stack(vjust = 0.5)) +
+  ylab("% of Spells Cast") +
+  xlab("\n\n\n") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Caduceus_other" = "#b0e8da",
+                               "Caduceus_healing" = "#ebf9f6",
+                               "Caduceus_damage" = "#26806a",
+                               "Jester_other" = "#b8c9e0",
+                               "Jester_healing" = "#edf2f7",
+                               "Jester_damage" = "#5882b8"),
+                    labels = c("Damage", "Other", "Healing", "", "", "")) + 
+  scale_color_manual(values = c("damage" = "black",
+                                "other" = "gray",
+                                "healing" = "white"),
+                     labels = c("Damage", "Other", "Healing", "", "", "")) + 
+  labs(title = paste0('\n"', "I don't want to be a good cleric. I want to hit him.",'"'),
+       subtitle = "\n — Jester Lavorre <3\n",
+       fill = "") +
+  theme(text = element_text(family="Courier"),
+        #legend.position = "bottom",
+        legend.position = c(0.627,-.2)) +
+  guides(fill = guide_legend(override.aes = 
+                               list(fill=c(a = "gray35", b = "gray80", c = "white",
+                                           d = "white", e = "white", f = "white"),
+                                    color = c("black", "black", "black",
+                                              "white", "white", "white")),
+                             nrow = 1))
+```

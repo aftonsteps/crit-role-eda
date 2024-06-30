@@ -1,0 +1,93 @@
+---
+title: "Frumpkin Forms"
+author: "Afton Coombs"
+date: "4/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magick)
+library("ggplot2")
+library("ggimage")
+```
+
+## Data
+
+```{r load-data, options}
+## from here: https://www.critrolestats.com/frumpkinsforms
+frump_forms <- read.csv("data/frumkin-forms-2.csv",
+                        stringsAsFactors = FALSE)
+
+img_label_2 <-
+  tibble(label = c("cat",
+                       "sparrow",
+                       "falcon",
+                       "owl",
+                       "spider",
+                       "octopus",
+                       "tiny owl",
+                       "vulture",
+                       "raven",
+                       "monkey"),
+             img = list(image_read("img/cat-icon.png"),
+                        image_read("img/sparrow-icon.png"),
+                        image_read("img/falcon-icon.png"),
+                        image_read("img/owl-icon.png"),
+                        image_read("img/spider-icon.png"),
+                        image_read("img/octopus-icon.png"),
+                        image_read("img/tiny-owl-icon.png"),
+                        image_read("img/vulture-icon.png"),
+                        image_read("img/raven-icon.png"),
+                        image_read("img/monkey-icon.png")))
+
+img_label <-
+  tibble(label = c("cat",
+                       "sparrow",
+                       "falcon",
+                       "owl",
+                       "spider",
+                       "octopus",
+                       "tiny owl",
+                       "vulture",
+                       "raven",
+                       "monkey"),
+             img = c("img/cat-2-icon.png",
+                     "img/sparrow-2-icon.png",
+                     "img/falcon-2-icon.png",
+                     "img/owl-2-icon.png",
+                     "img/spider-2-icon.png",
+                     "img/octopus-5-icon.png",
+                     "img/owl-2-icon.png",
+                     "img/vulture-2-icon.png",
+                     "img/raven-2-icon.png",
+                     "img/monkey-3-icon.png"))
+
+frump_forms_2 <-
+  frump_forms %>%
+  dplyr::left_join(img_label_2, by = c("form" = "label"))
+
+frump_forms <- 
+  frump_forms %>%
+  dplyr::left_join(img_label, by = c("form" = "label"))
+```
+
+```{r chart, options}
+ggplot(data = frump_forms,
+       aes(x = episode * 5, y = jitter^(3/4), label = episode, fill = "black")) +
+  labs(caption = "Frumpkin's Forms    \n") +
+  geom_hline(yintercept = 0,
+             color = "white",
+             size = 0.3) +
+  geom_image(aes(image=img), asp = 1.75) +
+  geom_image(aes(image=img), asp = 1.75) +
+  #geom_point(aes(x = episode, fill = "black")) +
+  geom_text(aes(x = episode * 5, y = 0.3, label = episode, angle = 90, hjust = 0, vjust = 0), size = 2, family = "Courier") +
+  coord_cartesian(ylim = c(-0.5, 8)) +
+  theme_void() +
+  theme(legend.position = "bottom") +
+  theme(
+        #axis.text.x=element_blank(),
+        #axis.ticks.x=element_blank(),
+        text = element_text(family="Courier"))
+```

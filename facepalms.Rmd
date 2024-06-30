@@ -1,0 +1,180 @@
+---
+title: "Face Palms"
+author: "Afton Coombs"
+date: "5/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+```
+
+## The Data
+
+```{r load-data}
+face_palms <- 
+  read.csv("data/face palms.csv", header = FALSE, stringsAsFactors = FALSE) %>%
+  dplyr::select(event = V1) %>%
+  dplyr::filter(! grepl("^[0-9]", event))
+head(face_palms)
+```
+
+```{r label, options}
+actors <- list(travis = c("Travis", "Fjord", "Grog"),
+               marisha = c("Marisha", "Keyleth", "Beau", "Beauregard"),
+               liam = c("Liam", "Vax", "Caleb"),
+               sam = c("Sam", "Scanlan", "Taryon", "Tary", "Nott", "Veth"),
+               laura = c("Laura", "Vex", "Jester"),
+               taliesin = c("Taliesin", "Percy", "Molly", "Mollymauk", "Caduceus", "Cad"),
+               ashley = c("Ashley", "Pike", "Yasha"),
+               everyone = c("everyone", "Vox Machina", "VM", "Mighty Nein", "the Nein", "The Nein"))
+```
+
+The rules of assignment:
+
+- A face palm event's first name occurrance determines the attribution. For example, "Caleb is great at accents. Again." is attributed to Liam, and " . Because of the way that the face palm data is entered (at least so far), the entry is phrased subject first ("_____ did this") or with a possessive ("at _____'s action"), so this method works for events where a single actor is responsible for a face palm.
+- However, if a face palm event's first name occurance contains "and" such as "____ and ____" (e.g. "Nott and Caleb") then the two actors split the face palm 2 ways.
+- If a face palm event contains "_____, _____, and _____", it is split three ways. There are no four-person or greater lists in the data that I could find.
+- If a face palm event contains language for everyone (e.g. "everyone", "Vox Machina", "the Nein") then the facepalm is split 7 ways.
+
+```{r std-names}
+std_names <- function(x_char, names_char) {
+  for (i in 1:length(x_char)) {
+    for (j in 2:length(names_char)) {
+      x_char[i] <- gsub(pattern = names_char[j], replacement = names_char[1], x = x_char[i])
+      x_char[i] <- gsub(pattern = "'s|’s", replacement = "", x = x_char[i])
+    }
+  }
+  
+  return(x_char)
+}
+
+face_palms_by_actor <- 
+  face_palms %>%
+  dplyr::mutate(primary_attribution = NA, 
+                primary_attribution_idx = NA,
+                secondary_attribution = NA,
+                tertiary_attribution = NA)
+
+for (i in 1:length(actors)) {
+  face_palms_by_actor$event <- std_names(face_palms_by_actor$event, actors[[i]])
+}
+  
+head(face_palms_by_actor)
+```
+
+```{r quick-check}
+sum(grepl("Jester", face_palms$event))
+sum(grepl("Jester", face_palms_by_actor$event))
+```
+
+We also need to account for actor names followed or preceded by " and ", or in a list of the form "_____, _____, and _____". We could map out every combination, e.g. "Travis and Marisha", "Travis and Liam", "Travis and Sam"... all the way to the end of the table. This would require 7 x 6 = 42 combinations. Then, when we add in the three-person list, we would hae 7 x 6 x 5 = 210 combinations. 210 + 42 = 252 is a lot of columns. 
+
+There might be an easier way, though. We could mark each first-occurence of an actor name as followed by and or not, and if it is, look for the next actor name. Likewise, we could mark each actor name as followed by "," and if it is then immediately followed by another actor name, and then by ", and" and then a third actor name, attribute that face palm three ways.
+
+As a first pass, it's easy to get the first match of an actor name by using the `stringr::str_locate()` function.
+
+```{r attribute-first}
+## Loop over each actor name
+## Store an attribution name, an attribution idx, a secondary attribution, and a tertiary attribution.
+## Find location of first occurance of name. If followed by "and" or "," search for other names. 
+## Keep other names if they are contiguous, but drop other names if they are separated by too much space.
+## Contiguous means that the end of the actor's name is followed by the start of " and _____" where 
+## the blank is another actor's name.
+## For each actor name, only replace the attribution of the previous actor name if the found idx is lower.
+actors_single <- c("Travis", "Marisha", "Liam", "Sam", "Laura", "Taliesin", "Ashley")
+
+for (i in 1:nrow(face_palms_by_actor)) {
+  for (j in 1:length(actors_single)) {
+    match_loc <- stringr::str_locate(face_palms_by_actor$event[i], actors_single[j])
+    if (!is.na(match_loc[2]) & 
+        (is.na(face_palms_by_actor$primary_attribution_idx[i]) | 
+        match_loc[2] < face_palms_by_actor$primary_attribution_idx[i])) {
+      face_palms_by_actor$primary_attribution_idx[i] <- match_loc[2]
+      face_palms_by_actor$primary_attribution[i] <- actors_single[j]
+      ## Look for actor and actor constructions
+      and_construct_idx <- 
+        stringr::str_locate(pattern = paste0(actors_single[j], " and"), 
+                              string = face_palms_by_actor$event[i])[1]
+      list_construct_idx <- 
+        stringr::str_locate(pattern = paste0(actors_single[j], ", [a-zA-Z]*, and"), 
+                                     string =face_palms_by_actor$event[i])[1]
+      if (!is.na(and_construct_idx) & and_construct_idx == match_loc[1]) {
+        next_actor <- stringr::str_match(string = face_palms_by_actor$event[i],
+                                         pattern = paste0(actors_single[j], " and [a-zA-Z]* "))
+        next_actor <- gsub(pattern = paste0(actors_single[j], " and | $"), 
+                           replacement = "", 
+                           x = next_actor)
+        if (next_actor %in% actors_single) { face_palms_by_actor$secondary_attribution[i] <- next_actor }
+      } else if (!is.na(list_construct_idx) & list_construct_idx == match_loc[1]) {
+        next_actor <- stringr::str_match(string = face_palms_by_actor$event[i],
+                                         pattern = paste0(actors_single[j], ", [a-zA-Z]*,"))
+        next_actor <- gsub(paste0(actors_single[j], ", |,$"), "", next_actor)
+        if (next_actor %in% actors_single) { face_palms_by_actor$secondary_attribution[i] <- next_actor } 
+        third_actor <- stringr::str_match(string = face_palms_by_actor$event[i],
+                                         pattern = paste0(actors_single[j], ", [a-zA-Z]*, and [a-zA-z]* "))
+        third_actor <- gsub(paste0(actors_single[j], ", ", next_actor, ", and| $"), "", third_actor)
+        if (third_actor %in% actors_single) { face_palms_by_actor$tertiary_attribution[i] <- third_actor } 
+      }
+    }
+  }
+}
+
+head(face_palms_by_actor)
+```
+
+```{r tallying-facepalms}
+face_palms_by_actor_attribution <-
+  face_palms_by_actor %>%
+  dplyr::filter(!is.na(primary_attribution)) %>%
+  dplyr::mutate(Travis = 0, Marisha = 0, Liam = 0, Sam = 0, Laura = 0, Taliesin = 0, Ashley = 0)
+
+for (i in 1:nrow(face_palms_by_actor_attribution)) {
+  if (!is.na(face_palms_by_actor_attribution$primary_attribution[i])) {
+    if (is.na(face_palms_by_actor_attribution$secondary_attribution[i]) &
+        is.na(face_palms_by_actor_attribution$tertiary_attribution[i])) {
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$primary_attribution[i]] <- 1
+    } else if (is.na(face_palms_by_actor_attribution$tertiary_attribution[i])) {
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$primary_attribution[i]] <- 0.5
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$secondary_attribution[i]] <- 0.5
+    } else {
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$primary_attribution[i]] <- 1/3
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$secondary_attribution[i]] <- 1/3
+      face_palms_by_actor_attribution[i, face_palms_by_actor_attribution$tertiary_attribution[i]] <- 1/3
+    }
+    
+  }
+}
+
+face_palms_by_actor_summary <-
+  face_palms_by_actor_attribution %>%
+  dplyr::select(Travis, Marisha, Liam, Sam, Laura, Taliesin, Ashley) %>%
+  tidyr::pivot_longer(cols = dplyr::everything()) %>%
+  dplyr::group_by(name) %>%
+  dplyr::summarize(face_palms = sum(value)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(face_palm_props = face_palms / sum(face_palms))
+
+face_palms_by_actor_summary
+```
+
+```{r colors}
+single_mighty_nein_colors <-
+  c("Travis" = as.character("#78a05a"),
+    "Marisha" = as.character("#072d7f"),
+    "Liam" = as.character("#b36817"),
+    "Sam" = as.character("#525530"),
+    "Laura" = as.character("#5882b8"),
+    "Taliesin" = as.character("#c47e9d"),
+    "Yasha" = as.character("#535154"))
+
+single_mighty_nein_colors
+```
+
+```{r garchart}
+
+```
+
+
+

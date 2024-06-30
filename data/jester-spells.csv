@@ -1,0 +1,66 @@
+﻿Spell,# Times Cast,Level,Type
+Mending,79,1,other
+Guidance,63,1,other
+Thaumaturgy,42,1,other
+Sacred Flame,34,1,damage
+Toll the Dead,33,1,damage
+Spare the Dying,4,1,healing
+Word of Radiance,1,1,damage
+Cure Wounds,78,2,healing
+Guiding Bolt,44,2,damage
+Disguise Self,39,2,other
+Inflict Wounds,21,2,damage
+Hellish Rebuke,17,2,damage
+Bless,12,2,other
+Command,10,2,other
+Healing Word,9,2,healing
+Charm Person,8,2,other
+Detect Evil and Good,4,2,other
+Create or Destroy Water,3,2,other
+Sanctuary,3,2,other
+Grease,2,2,other
+Detect Magic,1,2,other
+Pass Without a Trace,34,3,other
+Spiritual Weapon,31,3,damage
+Locate Object,24,3,other
+Enhance Ability,9,3,other
+Hold Person,8,3,other
+Zone of Truth,5,3,other
+Mirror Image,4,3,other
+Lesser Restoration,3,3,healing
+Blindness/Deafness,2,3,other
+Prayer of Healing,2,3,healing
+Sending,108,4,other
+Create Food and Water,26,4,other
+Dispel Magic,13,4,other
+Spirit Guardians,10,4,damage
+Revivify,3,4,healing
+Blink,2,4,other
+Daylight,2,4,other
+Incite Greed,2,4,other
+Speak with Dead,2,4,other
+Glyph of Warding,1,4,other
+Mass Healing Word,1,4,healing
+Polymorph,28,5,other
+Dimension Door,13,5,other
+Control Water,6,5,other
+Banishment,4,5,other
+Stone Shape,4,5,other
+Scrying,19,6,other
+Greater Restoration,4,6,healing
+Commune,3,6,other
+Dawn,1,6,damage
+Dominate Person,1,6,other
+Insect Plague,1,6,damage
+Modify Memory,1,6,other
+Blade Barrier,1,7,damage
+Find the Path,1,7,other
+Planar Ally,1,7,other
+Word of Recall,1,7,other
+Blessing of the Trickster,43,,other
+Channel Divinity: Invoke Duplicity,32,,other
+Smiles,7,,other
+Divine Intervention,4,,other
+Channel Divinity: Cloak of Shadows,3,,other
+Channel Divinity: Turn Undead,3,,other
+Channel Divinity: Destroy Undead,1,,damage

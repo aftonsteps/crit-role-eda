@@ -1,0 +1,143 @@
+---
+title: "Word Clouds"
+author: "Afton Coombs"
+date: "5/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(tokenizers)
+library(tm)
+library(wordcloud)
+library(wordcloud2)
+library(ggwordcloud)
+source("colors.R")
+```
+
+```{r read-data}
+sending <- openxlsx::read.xlsx("data/sending.xlsx") %>%
+  dplyr::filter(stringr::str_detect(Message, "^\\(")) %>%
+  dplyr::mutate(Message = gsub(".*\\)", "", Message)) %>%
+  dplyr::filter(Message != "") %>%
+  dplyr::mutate(Message = tolower(Message)) %>%
+  dplyr::mutate(Message = gsub("[[:punct:]]", "", Message))
+
+nein <- openxlsx::read.xlsx("data/nein.xlsx") %>%
+  dplyr::filter(stringr::str_detect(Speech, "^\\(")) %>%
+  dplyr::mutate(Speech = gsub(".*\\)", "", Speech)) %>%
+  dplyr::filter(Speech != "") %>%
+  dplyr::mutate(Speech = tolower(Speech)) %>%
+  dplyr::mutate(Speech = gsub("[[:punct:]]", "", Speech)) %>%
+  dplyr::mutate(Speech = gsub("liam|matt|taliesin|laura|ashley|travis|marisha|sam",
+                              "",
+                              Speech))
+
+kiri_data <- openxlsx::read.xlsx("data/Kiri Imitations.xlsx")
+
+kiri_data <-
+  kiri_data %>%
+  dplyr::mutate(Imitated = str_match(Kiri, "like .*\\)")) %>%
+  dplyr::mutate(Imitated = str_replace(Imitated, "like ", "")) %>%
+  dplyr::mutate(Imitated = str_replace(Imitated, "\\)", "")) %>%
+  dplyr::mutate(Speech = str_match(Kiri, "[[:alpha:]]\\) .*[[:punct:]]$")) %>%
+  dplyr::mutate(Speech = str_replace(Speech, "[[:alpha:]]\\) ", "")) %>%
+  dplyr::mutate(Words = tolower(Speech)) %>%
+  dplyr::mutate(Words = str_replace(Words, "f\\*\\*", "fuck")) %>%
+  dplyr::mutate(Words = str_replace(Words, "[[:punct:]]", "")) %>%
+  dplyr::mutate(Words = str_replace(Words, "\\.", "")) %>%
+  dplyr::mutate(Words = str_replace(Words, "fuck", "f***")) %>%
+  dplyr::mutate(Words = str_replace(Words, "i'm", "")) %>%
+  dplyr::mutate(Number = seq(1:nrow(kiri_data)))
+
+```
+
+```{r tokenize-data}
+sending_tokens <-
+  paste(sending$Message, collapse = " ") %>%
+  tokenizers::tokenize_words(stopwords = tm::stopwords())
+
+sending_corp <- 
+  Corpus(VectorSource(sending$Message)) %>%
+  tm_map(removeWords, stopwords("english")) %>%
+  TermDocumentMatrix() %>%
+  as.matrix()
+
+sending_counts <-
+  data.frame(word = rownames(sending_corp),
+             freq = rowSums(sending_corp)) %>%
+  dplyr::arrange(desc(freq))
+
+nein_tokens <- 
+  paste(nein$Speech, collapse = " ") %>%
+  tokenizers::tokenize_words(stopwords = tm::stopwords())
+
+nein_corp <- 
+  Corpus(VectorSource(nein$Speech)) %>%
+  tm_map(removeWords, stopwords("english")) %>%
+  TermDocumentMatrix() %>%
+  as.matrix()
+
+nein_counts <-
+  data.frame(word = rownames(nein_corp),
+             freq = rowSums(nein_corp)) %>%
+  dplyr::arrange(desc(freq))
+
+kiri_corp <- 
+  Corpus(VectorSource(kiri_data$Words)) %>%
+  tm_map(removeWords, stopwords("english")) %>%
+  TermDocumentMatrix() %>%
+  as.matrix()
+
+kiri_counts <-
+  data.frame(word = rownames(kiri_corp),
+             freq = rowSums(kiri_corp)) %>%
+  dplyr::arrange(desc(freq)) %>%
+  dplyr::filter(! word %in% c("’m", "’s"))
+  
+```
+
+```{r make-wordcloud}
+set.seed(1234)
+wordcloud::wordcloud(words = sending_counts$word, freq = sending_counts$freq, min.freq = 1,
+                     max.words=100, random.order=FALSE, rot.per=0.35, 
+                     colors = rep(rev(jester_pal), 2),
+                     family = "Luminari")
+```
+
+```{r make-wordcloud-nein}
+set.seed(1234)
+wordcloud::wordcloud(words = nein_counts$word, freq = nein_counts$freq, min.freq = 1,
+                     max.words=100, random.order=FALSE, rot.per=0.35, 
+                     colors = c(rep(rev(mighty_nein), 20), rep(rev(mighty_nein_medium), 2)),
+                     family = "Luminari")
+```
+
+```{r make-wordcloud-kiri}
+set.seed(1234)
+wordcloud::wordcloud(words = kiri_counts$word, freq = kiri_counts$freq, min.freq = 1,
+                     max.words=100, random.order=FALSE, rot.per=0.35, 
+                     colors = c(rep((jester_pal), 20), rep(rev(mighty_nein_medium), 2)),
+                     family = "Luminari")
+```
+
+```{r make-wordcloud-2}
+set.seed(1234)
+lolli = system.file("img/lolli.png", package = "wordcloud2")
+lolli = "/Users/aftoncoombs/Projects/crit_role_eda/img/lolli.png"
+wordcloud2::wordcloud2(sending_counts,
+                       fontFamily = "Luminari",
+                       color = rep(jester_pal, 20),
+                       shape = "circle",
+                       size = 0.5,
+                       backgroundColor = "white")
+```
+
+```{r wordcloud3}
+set.seed(42)
+ggplot(sending_counts, aes(label = word, size = freq)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 90) + 
+  theme_minimal()
+```

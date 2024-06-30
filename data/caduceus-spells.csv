@@ -1,0 +1,65 @@
+﻿Spell,# Times Cast,Level,Type
+Sacred Flame,62,1,damage
+Decompose,46,1,other
+Guidance,45,1,other
+Light,37,1,other
+Thaumaturgy,27,1,other
+Resistance,17,1,other
+Spare the Dying,12,1,healing
+Detect Magic,35,2,other
+Cure Wounds,31,2,healing
+Disguise Self,25,2,other
+Bless,22,2,other
+Bane,16,2,other
+Healing Word,16,2,healing
+Command,5,2,other
+Guiding Bolt,3,2,damage
+Create and Destroy Water,2,2,other
+Protection from Evil and Good,2,2,other
+Detect Evil and Good,1,2,other
+Prayer of Healing,27,3,healing
+Locate Object,12,3,other
+Blindness/Deafness,6,3,other
+Enhance Ability,6,3,other
+Ray of Enfeeblement,6,3,damage
+Gentle Repose,5,3,other
+Lesser Restoration,5,3,healing
+Calm Emotions,4,3,other
+Silence,3,3,other
+Find Traps,2,3,other
+Protection from Poison,2,3,healing
+Create Food and Water,42,4,other
+Mass Healing Word,9,4,healing
+Speak with Dead,9,4,other
+Spirit Guardians,6,4,damage
+Beacon of Hope,4,4,other
+Daylight,3,4,other
+Dispel Magic,3,4,other
+Water Walk,3,4,other
+Vampiric Touch,2,4,damage
+Meld Into Stone,1,4,other
+Motivational Speech,1,4,other
+Revivify,1,4,healing
+Tongues,1,4,other
+Guardian of Faith,7,5,damage
+Blight,6,5,damage
+Control Water,6,5,other
+Stone Shape,6,5,other
+Death Ward,4,5,healing
+Divination,2,5,other
+Freedom of Movement,2,5,other
+Locate Creature,2,5,other
+Commune,11,6,other
+Greater Restoration,8,6,healing
+Holy Weapon,4,6,damage
+Legend Lore,2,6,other
+Antilife Shell,1,6,other
+Scrying,1,6,other
+True Seeing,1,7,other
+Eyes of the Grave,34,,other
+Sentinel at Death's Door,16,,healing
+Channel Divinity: Path to the Grave,13,,other
+Swarm of Beetles,11,,damage
+Divine Intervention,10,,other
+Channel Divinity: Turn Undead,3,,other
+Channel Divinity: Destroy Undead,2,,damage

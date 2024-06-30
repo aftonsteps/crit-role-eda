@@ -1,0 +1,545 @@
+---
+title: "Critical Role EDA"
+author: "Afton Coombs"
+date: "12/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE, message = FALSE)
+library(googlesheets4)
+library(tidyr)
+library(ggplot2)
+library(ComplexHeatmap)
+library(circlize)
+library(colorspace)
+library(GetoptLong)
+library(scater)
+source("colors.R")
+library(ggthemes)
+library(cowplot)
+library(colorspace)
+library(colorblindr)
+library(tidyverse)
+library(network)
+# library(igraph)
+library(tidygraph)
+library(ggraph)
+library(png)
+library(cowplot)
+library(stringr)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+```
+
+## Introduction
+
+This is an EDA of attendance on the web series Critical Role, in which 
+voice actors play Dungeons and Dragoooooooons! It is a fantastic show, 
+*and* some the amazing fans at <a href = "https://www.critrolestats.com/stats-wm">
+Critical Role Stats</a> have been tracking <a href = "https://twitter.com/CritRoleStats/">"monster stats, dice rolls, and anything else that can be quantified on Critical Role"<a/>.
+
+During this season, Ashley Johnson (playing Yasha) had a conflicting 
+role acting on a TV series, and was absent for several episodes, 
+Laura Bailey (Jester) had a baby (yay!) and was also absent for a few 
+episodes, and Travis, Taliesin, and Liam had a smattering of absences 
+for various reasons. On some occasions, the storyline was adapted to make
+the character absent from the gameplay to correspond to the actor's 
+absence (e.g. Yasha the character was babysitting while Ashley the 
+actor was absent) and on some occasions the other players made decisions 
+for the character on the player's, and kept the character in play.
+
+```{r load-data}
+# attendance_data <- 
+#   read.csv("data/Running Times - Wildemount - WM CR Attendance.csv",
+#            stringsAsFactors = FALSE)
+
+attendance_data <- 
+  read.csv("data/Running Times - Wildemount - WM CR Attendance 20.02.07.csv",
+           stringsAsFactors = FALSE)
+
+attendance_data$Episode.Num <- 
+  as.numeric(gsub("C2E", "", attendance_data$Episode))
+
+attendance_data$Date <- 
+  as.Date(attendance_data$Air.Date,
+                     format = "%m/%d/%y")
+
+attendance_data_long <-
+  attendance_data %>%
+  tidyr::pivot_longer(cols = c("Laura", 
+                               "Liam", 
+                               "Marisha", 
+                               "Taliesin", 
+                               "Travis", 
+                               "Sam", 
+                               "Ashley"),
+                      names_to = "Actor") %>%
+  as_tibble() %>%
+  dplyr::mutate(value = as.factor(value))
+```
+
+
+```{r high-level-att-heatmap}
+# colors <- structure(c("black", "green"), names = c("0", "1"))
+# Heatmap(as.matrix(attendance_data[ , 3:9]),
+#         col = colors,
+#         name = "Critical Role Attendance",
+#         column_title = "Actor",
+#         column_title_side = "bottom", 
+#         cluster_rows = FALSE,
+#         column_dend_side = "bottom")
+# 
+# h1 <- Heatmap(as.matrix(attendance_data[ , 3]),
+#         col = mighty_nein_dark_to_light$Travis,
+#         name = "Critical Role Attendance",
+#         column_title = "Fjord",
+#         column_title_side = "bottom", 
+#         cluster_rows = FALSE,
+#         column_dend_side = "bottom")
+# 
+# h2 <- Heatmap(as.matrix(attendance_data[ , 4]),
+#         col = mighty_nein_dark_to_light$Marisha,
+#         name = "Critical Role Attendance",
+#         column_title = "Beau",
+#         column_title_side = "bottom", 
+#         cluster_rows = FALSE,
+#         column_dend_side = "bottom")
+
+g1 <- 
+  ggplot2::ggplot(data = attendance_data_long %>%
+                        dplyr::filter(Actor == "Travis"),
+                               aes(x = Episode.Num,
+                                   y = Actor,
+                                   fill = factor(value))) +
+  ggplot2::geom_tile() +
+  scale_color_manual(values = as.character(mighty_nein_dark_to_light$Travis),
+                     aesthetics = c("colour", "fill"))
+
+g2 <- 
+  ggplot2::ggplot(data = attendance_data_long %>%
+                        dplyr::filter(Actor == "Marisha"),
+                               aes(x = Episode.Num,
+                                   y = Actor,
+                                   fill = factor(value))) +
+  ggplot2::geom_tile() +
+  scale_color_manual(values = c("0" = as.character(mighty_nein_dark_to_light$Marisha[1]),
+                                "1" = as.character(mighty_nein_dark_to_light$Marisha[2])),
+                     aesthetics = c("colour", "fill"))
+
+multiplot(g1, g2)
+  
+
+multiplot(h1, h2)
+
+attendance_data_long_with_factor <-
+  attendance_data_long %>%
+  dplyr::mutate(value_factor = ifelse(test = Episode.Num > 27 & Actor == "Taliesin",
+                                      yes = paste0(Actor, as.numeric(value) + 2),
+                                      no = paste0(Actor, value))) %>%
+  dplyr::mutate(value_factor = factor(value_factor),
+                Actor = factor(Actor,
+                               levels = c("Ashley",
+                                          "Taliesin",
+                                          "Laura",
+                                          "Sam",
+                                          "Liam",
+                                          "Marisha",
+                                          "Travis"))) 
+  
+
+
+g <- ggplot2::ggplot(data = attendance_data_long_with_factor,
+                               aes(x = Episode.Num,
+                                   y = Actor,
+                                   fill = factor(value_factor))) +
+  ggplot2::geom_tile() +
+  theme_hc() +
+  #theme_clean() +
+  # theme_few () +
+  scale_color_manual(values = discrete_mighty_nein_colors,
+                     aesthetics = c("fill")) +
+  scale_x_continuous(breaks = seq(1, 94, 1),
+                     labels = paste0("Ep. ", seq(1, 94, 1))) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 5,
+                                   angle = 90),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+cvd_grid(g)
+g
+
+## TODO might want to use a charater matrix instead, as this
+## will suppress clustering. Depends on what I want to do with
+## the data. Maybe clustering of attendance behavior is interesting.
+
+## TODO I want to rotate this so the actors are on the y axis
+## and so that the order is the order they sit in on the show
+```
+
+```{r load-potion-data}
+# potion_data <- read.csv("data/Potions Consumed - Wildemount.csv",
+#                         stringsAsFactors = FALSE)
+
+potion_data <- read.csv("data/Potions Consumed - Wildemount - Wildemount Potions 20.12.20.csv",
+                        stringsAsFactors = FALSE)
+
+potion_data <-
+  potion_data %>%
+  filter(! (Administered.To %in% c("Shakäste", "Pumat Sol")))
+
+potion_from <- 
+  potion_data %>%
+  distinct(Administered.by) %>%
+  rename(label = Administered.by)
+
+potion_to <-
+  potion_data %>%
+  distinct(Administered.To) %>%
+  rename(label = Administered.To)
+
+potion_nodes <- 
+  full_join(potion_from, potion_to, by = "label") %>%
+  rowid_to_column("id")
+  
+potion_edge_list <- 
+  potion_data %>%
+  mutate(self_directed = as.numeric(Administered.by == Administered.To)) %>%
+  group_by(Administered.by, Administered.To, Potion, self_directed) %>%
+  summarize(weight = n()) %>%
+  ungroup() %>%
+  left_join(potion_nodes, by = c("Administered.by" = "label")) %>% 
+  rename(from = id) %>%
+  left_join(potion_nodes, by = c("Administered.To" = "label")) %>% 
+  rename(to = id) %>%
+  select(from, to, weight, Potion, self_directed) %>%
+  mutate(weight = as.integer(weight))
+
+agg_potion_edge_list <- 
+  potion_data %>%
+  group_by(Administered.by, Administered.To) %>%
+  summarize(weight = n()) %>%
+  ungroup() %>%
+  left_join(potion_nodes, by = c("Administered.by" = "label")) %>% 
+  rename(from = id) %>%
+  left_join(potion_nodes, by = c("Administered.To" = "label")) %>% 
+  rename(to = id) %>%
+  select(from, to, weight)
+```
+
+```{r graph-potions}
+# potion_network <- network(potion_edge_list, 
+#                           vertex.attr = potion_nodes, 
+#                           matrix.type = "edgelist", 
+#                           ignore.eval = FALSE)
+# plot(potion_network)
+
+#potion_igraph <- graph_from_data_frame(d = potion_edge_list, vertices = potion_nodes, directed = TRUE)
+
+#plot(potion_igraph, layout = layout_with_graphopt, edge.arrow.size = 0.5)
+
+potions_tidy <- tbl_graph(nodes = potion_nodes, edges = potion_edge_list, directed = TRUE)
+
+potions_tidy %>%
+  activate(edges) %>%
+  arrange(desc(weight))
+
+
+agg_potions_tidy <- 
+  tbl_graph(nodes = potion_nodes, 
+            edges = agg_potion_edge_list, 
+            directed = TRUE)
+
+agg_potions_tidy %>%
+  activate(edges) %>%
+  arrange(desc(weight))
+
+
+# ggraph(potions_tidy, layout = "linear") +
+#   geom_edge_loop(aes(x = to + 0.1 - 0.1 * as.numeric(factor(Potion,
+#                                                             levels = c("Regular Healing",
+#                                                                        "Greater Healing",
+#                                                                        "Superior Healing"))),
+#                      y = 0,
+#                      width = weight, 
+#                      color = Potion,
+#                      strength = 0.5,
+#                      direction = 20,
+#                      span = 90),
+#                  arrow = arrow(length = unit(2, 'mm')),
+#                  end_cap = circle(3, 'mm')) +
+#   geom_edge_fan(aes(width = weight, color = Potion), alpha = 0.8,
+#                  arrow = arrow(length = unit(2, 'mm')),
+#                  end_cap = circle(3, 'mm')) +
+#   scale_edge_width(range = c(0.2, 1)) +
+#   geom_node_text(aes(label = label)) +
+#   labs(edge_width = "Number of Potions Given") +
+#   theme_graph()
+
+
+
+
+# ggraph(potions_tidy, layout = "linear") +
+  # geom_edge_loop(aes(x = to + 0.1 - 0.1 * as.numeric(factor(Potion,
+  #                                                           levels = c("Regular Healing",
+  #                                                                      "Greater Healing",
+  #                                                                      "Superior Healing"))),
+  #                    width = weight,
+  #                    color = Potion),
+  #                arrow = arrow(length = unit(3, 'mm')),
+  #                end_cap = circle(2, 'mm'),
+  #                alpha = 0.5) +
+  # geom_edge_arc(aes(width = weight,
+  #                   color = Potion,
+  #                   xend = to + 0.2 - 0.2 * as.numeric(factor(Potion ,
+  #                                                             levels = c("Regular Healing",
+  #                                                                      "Greater Healing",
+  #                                                                      "Superior Healing"))),
+  #                   ),
+  #                arrow = arrow(length = unit(3, 'mm')), ## TODO need to add var to track self directedness and remove those
+  #                end_cap = circle(2, 'mm'),
+  #               alpha = 0.5) +
+  # scale_edge_width(range = c(0.2, 2)) +
+  # geom_node_text(aes(label = label)) +
+  # labs(edge_width = "Number") +
+  # theme_graph()
+
+
+image_width <- 0.26
+image_height <- 0.4
+space_between_images_h <- 0.05
+space_between_images_v <- 0.25
+image_h_offset <- image_width + space_between_images_h
+image_v_offset <- image_height + space_between_images_v
+image_x <- 7.0
+image_y <- -0.8
+
+arrow_y <- image_y - 0.2
+arrow_length <- 0.25
+arrow_x_end <-  image_x - 0.5
+arrow_x_start <-  image_x - 0.5 - arrow_length
+arrow_v_offset <- 0.25
+
+legend_y = image_y + 0.1
+
+
+## this one
+## TODO add white box backgrounds to names to prevent overlap
+## TODO fix arrow head angle so it matches the line
+background_labels <-
+  potion_edge_list %>%
+  left_join(potion_nodes,
+            by = c("from" = "id")) %>%
+  mutate(len = nchar(label)) %>%
+  mutate(arc_strength = ifelse(abs(from - to) == 1,
+                               0.75,
+                               1))
+
+
+potion_img <- readPNG("img/potion.png")
+ggraph(agg_potions_tidy, layout = "linear") +
+  geom_edge_loop(mapping = aes(span = 90,
+                               direction = 45,
+                               x = from + 0.15,
+                              # y = 0.15,
+                               width = weight),
+                 arrow = arrow(length = unit(3, 'mm')),
+                 end_cap = circle(3, 'mm'),
+                 start_cap = circle(3, "mm"),
+                 alpha = 0.8,
+                 color = "red4") +
+  geom_edge_arc(aes(x = ifelse(from == 4, 
+                               from,
+                               from - 0.15), 
+                    xend = ifelse(from == 4,
+                                  to - 0.15,
+                                  to),
+                    width = weight),
+                arrow = arrow(length = unit(3, 'mm')),
+                end_cap = circle(3, 'mm'),
+                start_cap = circle(3, "mm"),
+                alpha = 0.8,
+                color = "red4") +
+  scale_edge_width(range = c(0.2, 2),
+                   labels = c("one", "two", "three", "four")) +
+  geom_rect(aes(xmin = to - len/18, 
+                ymin = -0.1,
+                xmax = to + len/16,
+                ymax = 0.1), 
+            data = background_labels,
+            fill = "white") + 
+  geom_node_text(aes(label = label)) +
+  labs(edge_width = "Number of Potions Given") +
+  theme_graph() +
+  ggplot2::annotate("text",
+           x = image_x + 0.3,
+           y = legend_y,
+           label = "Number of Potions Given") +
+  ggplot2::annotate("segment",
+           x = arrow_x_start,
+           xend = arrow_x_end,
+           y = arrow_y,
+           yend = arrow_y,
+           colour = "red4",
+           size=0.25,
+           alpha=0.8) +
+  draw_image(potion_img, 
+             x = image_x, 
+             y = image_y, 
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  ggplot2::annotate("segment",
+           x = arrow_x_start,
+           xend = arrow_x_end,
+           y = arrow_y - arrow_v_offset,
+           yend = arrow_y - arrow_v_offset,
+           colour = "red4",
+           size=0.75,
+           alpha=0.8) +
+  draw_image(potion_img, 
+             x = image_x, 
+             y = image_y - space_between_images_v, 
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + image_h_offset, 
+             y = image_y - space_between_images_v,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  ggplot2::annotate("segment",
+           x = arrow_x_start,
+           xend = arrow_x_end,
+           y = arrow_y - 2 *  arrow_v_offset,
+           yend = arrow_y - 2 * arrow_v_offset,
+           colour = "red4",
+           size=1.25,
+           alpha=0.8) +
+  draw_image(potion_img,
+             x = image_x, 
+             y = image_y - space_between_images_v * 2,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + image_h_offset, 
+             y = image_y - space_between_images_v * 2,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + 2 * image_h_offset, 
+             y = image_y - space_between_images_v * 2,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  ggplot2::annotate("segment",
+           x = arrow_x_start,
+           xend = arrow_x_end,
+           y = arrow_y - 3 *  arrow_v_offset,
+           yend = arrow_y - 3 * arrow_v_offset,
+           colour = "red4",
+           size=1.75,
+           alpha=0.8) +
+  draw_image(potion_img, 
+             x = image_x, 
+             y = image_y - space_between_images_v * 3,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + image_h_offset, 
+             y = image_y - space_between_images_v * 3,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + 2 * image_h_offset, 
+             y = image_y - space_between_images_v * 3,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + 2 * image_h_offset, 
+             y = image_y - space_between_images_v * 3,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  draw_image(potion_img, 
+             x = image_x + 3 * image_h_offset, 
+             y = image_y - space_between_images_v * 3,
+             hjust = 1, 
+             vjust = 1, 
+             width = image_width, 
+             height = image_height) +
+  theme(legend.position = "none")
+```
+
+
+```{r kiri-imitations}
+kiri_data <- read.csv("data/Kiri Imitations.csv",
+                      stringsAsFactors = FALSE)
+
+kiri_data <-
+  kiri_data %>%
+  mutate(Imitated = str_match(Kiri, "like .*\\)")) %>%
+  mutate(Imitated = str_replace(Imitated, "like ", "")) %>%
+  mutate(Imitated = str_replace(Imitated, "\\)", "")) %>%
+  mutate(Speech = str_match(Kiri, "[[:alpha:]]\\) .*[[:punct:]]$")) %>%
+  mutate(Speech = str_replace(Speech, "[[:alpha:]]\\) ", "")) %>%
+  mutate(Words = tolower(Speech)) %>%
+  mutate(Words = str_replace(Words, "f\\*\\*", "fuck")) %>%
+  mutate(Words = str_replace(Words, "[[:punct:]]", "")) %>%
+  mutate(Words = str_replace(Words, "\\.", "")) %>%
+  mutate(Words = str_replace(Words, "fuck", "f***")) %>%
+  mutate(Number = seq(1:nrow(kiri_data)))
+
+kiri_data_m9 <-
+  kiri_data %>%
+  filter(Imitated %in% c("Beau",
+                         "Caleb",
+                         "Fjord",
+                         "Jester",
+                         "Molly",
+                         "Nott",
+                         "Yasha")) %>%
+  mutate(`Kiri Imitation` = Imitated)
+
+kiri_data_m9 <-
+  kiri_data_m9 %>%
+  mutate(Number = seq(1:nrow(kiri_data_m9)))
+
+ggplot(data = kiri_data_m9,
+       aes(x = Number, y = 0, color = `Kiri Imitation`, label = Speech)) +
+  labs(col = "Kiri & The M9: Imitations      ") +
+  geom_hline(yintercept = 0,
+             color = "white",
+             size = 0.3) +
+  geom_point(aes(x = Number, color = `Kiri Imitation`)) +
+  geom_text(aes(x = Number, y = 0.1, label = Speech, angle = 90, hjust = 0), size = 2, family = "Courier") +
+  coord_cartesian(ylim = c(-0.5, 8)) +
+  scale_color_manual(values = single_mighty_nein_colors) +
+  theme_void() +
+    theme(legend.position = "bottom") +
+  #ggtitle("Kiri Imitations") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(family="Courier"))
+```
+
